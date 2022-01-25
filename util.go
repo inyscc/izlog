@@ -56,6 +56,7 @@ func appendCaller(bf *buf) {
 			}
 		}
 		bf.buf = append(bf.buf, funcName[c:]...)
+		bf.buf = append(bf.buf, ':')
 		appendNum(bf, line)
 	}
 }
