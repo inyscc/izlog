@@ -3,7 +3,7 @@ package izlog
 import (
 	"io"
 	"runtime"
-	"sync"
+	"time"
 )
 
 type Level uint8
@@ -17,41 +17,55 @@ const (
 
 type logger struct {
 	io.Writer
-	Name string
+	name  string
+	debug string
+	info  string
+	err   string
 }
 
-var pool = &sync.Pool{
-	New: func() any {
-		ret := make([]byte, 0, 200)
-		return &ret
-	},
-}
+func (l *logger) write(info string, msg string) (n int, err error) {
+	bs := bpl.Get().(*buf)
+	bs.buf = bs.buf[:0]
+	bs.buf = time.Now().AppendFormat(bs.buf, "[2006-01-02 15:04:05.000]") // 写入时间
 
-func (l *logger) write(lvl string, bs string) (n int, err error) {
-	b := pool.Get().(*[]byte)
-	*b = append(*b, now()...)
-	*b = append(*b, lvl...)
-	*b = append(*b, l.Name...)
-	*b = append(*b, *caller()...)
-	*b = append(*b, "[goid:"...)
-	*b = append(*b, *toByte(runtime.Goid())...)
-	*b = append(*b, ']')
-	*b = append(*b, bs...)
-	*b = append(*b, '\n')
-	n, err = l.Write(*b)
-	pool.Put(b)
+	// 写入等级及服务名
+	bs.buf = append(bs.buf, info...)
+
+	// 写入调用信息
+	appendCaller(bs)
+
+	// 写入 goid
+	bs.buf = append(bs.buf, "[goid"...)
+	appendNum(bs, runtime.Goid())
+
+	// 写入日志信息
+	bs.buf = append(bs.buf, msg...)
+	bs.buf = append(bs.buf, '\n')
+
+	// 写入
+	n, err = l.Write(bs.buf)
+	if len(bs.buf) < maxLen<<2 { // 太大就抛弃了
+		bpl.Put(bs)
+	}
 	return
 }
 
 func New(name string, w io.Writer) (l *logger) {
+	name = "[" + name + "]"
 	if w == nil {
 		return &logger{
 			Writer: w,
-			Name:   name,
+			name:   name,
+			debug:  name + "[DEBUG]",
+			info:   name + "INFO",
+			err:    name + "[ERROR]",
 		}
 	}
 	return &logger{
 		Writer: w,
-		Name:   name,
+		name:   name,
+		debug:  name + "[DEBUG]",
+		info:   name + "INFO",
+		err:    name + "[ERROR]",
 	}
 }

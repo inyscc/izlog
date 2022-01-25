@@ -2,29 +2,62 @@ package izlog
 
 import (
 	"runtime"
-	"strings"
-	"time"
+	"sync"
 )
 
-// izlog/util.go.caller:9
-func caller() *[]byte {
+const maxLen = 1024
+
+const smallsString = "00010203040506070809" +
+	"10111213141516171819" +
+	"20212223242526272829" +
+	"30313233343536373839" +
+	"40414243444546474849" +
+	"50515253545556575859" +
+	"60616263646566676869" +
+	"70717273747576777879" +
+	"80818283848586878889" +
+	"90919293949596979899"
+
+type buf struct {
+	buf []byte
+}
+
+type bufTo struct {
+	buf [22]byte
+}
+
+var bpl = &sync.Pool{
+	New: func() any {
+		return &buf{buf: make([]byte, maxLen)}
+	},
+}
+
+var toPl = &sync.Pool{
+	New: func() any {
+		return &bufTo{}
+	},
+}
+
+func appendCaller(bf *buf) {
 	pc, file, line, ok := runtime.Caller(3)
 	if ok {
-		var a, b = 0, 0
-		for i, v := range file {
-			if v == '/' {
+		var a, b, c = 0, 0, 0
+		for i := 0; i < len(file); i++ {
+			if file[i] == '/' {
 				a = b
 				b = i
 			}
 		}
-		funcNames := strings.Split(runtime.FuncForPC(pc).Name(), ".")
-		ret := make([]byte, 0, 20)
-		ret = append(ret, file[a:]...)
-		ret = append(ret, funcNames[len(funcNames)-1]...)
-		ret = append(ret, *toByte(line)...)
-		return &ret
+		bf.buf = append(bf.buf, file[a+1:]...)
+		funcName := runtime.FuncForPC(pc).Name()
+		for i := 0; i < len(funcName); i++ {
+			if funcName[i] == '.' {
+				c = i
+			}
+		}
+		bf.buf = append(bf.buf, funcName[c:]...)
+		appendNum(bf, line)
 	}
-	return &[]byte{}
 }
 
 type integer interface {
@@ -32,16 +65,25 @@ type integer interface {
 }
 
 // t == 0 ? [] : expect
-func toByte[T integer](t T) *[]byte {
-	ret := make([]byte, 0, 64)
-	for t > 0 {
-		ret = append(ret, byte(t%10))
-		t /= 10
+func appendNum[T integer](b *buf, num T) {
+	var to = toPl.Get().(*bufTo) // +1 for sign of 64bit value in base 2
+	to.buf[21] = ']'
+	i := 21
+	for num >= 100 {
+		is := num % 100 * 2
+		num /= 100
+		i -= 2
+		to.buf[i+1] = smallsString[is+1]
+		to.buf[i+0] = smallsString[is+0]
 	}
-	return &ret
-}
-
-// [2006-01-02 15:04:05.000]
-func now() string {
-	return time.Now().Format("[2006-01-02 15:04:05.000]")
+	// us < 100
+	is := num * 2
+	i--
+	to.buf[i] = smallsString[is+1]
+	if num >= 10 {
+		i--
+		to.buf[i] = smallsString[is]
+	}
+	b.buf = append(b.buf, to.buf[i:]...)
+	toPl.Put(to)
 }
