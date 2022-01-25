@@ -2,6 +2,7 @@ package izlog
 
 import (
 	"io"
+	"os"
 	"runtime"
 	"time"
 )
@@ -54,18 +55,18 @@ func New(name string, w io.Writer) (l *logger) {
 	name = "[" + name + "]"
 	if w == nil {
 		return &logger{
-			Writer: w,
+			Writer: os.Stdout,
 			name:   name,
-			debug:  name + "[DEBUG]",
-			info:   name + "INFO",
-			err:    name + "[ERROR]",
+			debug:  name + "[DEBUG][",
+			info:   name + "[INFO][",
+			err:    name + "[ERROR][",
 		}
 	}
 	return &logger{
 		Writer: w,
 		name:   name,
-		debug:  name + "[DEBUG]",
-		info:   name + "INFO",
-		err:    name + "[ERROR]",
+		debug:  name + "[DEBUG][",
+		info:   name + "[INFO][",
+		err:    name + "[ERROR][",
 	}
 }
