@@ -1,20 +1,14 @@
 package izlog_test
 
 import (
+	"os"
 	"runtime"
 	"testing"
 
 	"github.com/inyscc/izlog"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-var logger = izlog.New("Izlog", &lumberjack.Logger{
-	Filename:   "./server.log",
-	MaxSize:    1024,
-	MaxBackups: 30,
-	MaxAge:     30,
-	Compress:   false,
-})
+var logger = izlog.New("Izlog", os.Stdout)
 
 func BenchmarkIzlog(b *testing.B) {
 	for i := 0; i < b.N; i++ {
