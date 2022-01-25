@@ -35,7 +35,7 @@ func (l *logger) write(info string, msg string) (n int, err error) {
 	appendCaller(bs)
 
 	// 写入 goid
-	bs.buf = append(bs.buf, "[goid"...)
+	bs.buf = append(bs.buf, "[goid:"...)
 	appendNum(bs, runtime.Goid())
 
 	// 写入日志信息
